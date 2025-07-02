@@ -56,3 +56,6 @@ logs/
 # Documentation builds
 docs/_build/
 site/
+
+# Reference implementation (keep out of repo)
+reference_pipeline.R
