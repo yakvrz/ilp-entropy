@@ -1,0 +1,11 @@
+# virtual envs
+.venv/
+# editors
+.vscode/
+.idea/
+# OS cruft
+.DS_Store
+# python artifacts
+__pycache__/
+*.py[cod]
+data/

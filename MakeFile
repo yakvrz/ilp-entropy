@@ -1,0 +1,19 @@
+# Makefile ─ high-signal helper commands
+.PHONY: test lint type format all
+
+all: test lint type          # run everything
+
+test:                        # run unit tests
+	poetry run pytest -q
+
+lint:                        # static style / error checks
+	poetry run ruff src tests
+
+type:                        # mypy strict typing
+	poetry run mypy src tests
+
+format:                      # auto-format + import order
+	poetry run black .
+	poetry run isort .
+fix-ruff:
+	poetry run ruff check --fix --unsafe-fixes .
