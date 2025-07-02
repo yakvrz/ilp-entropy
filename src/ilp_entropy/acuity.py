@@ -1,6 +1,6 @@
-"""
-acuity.py
-~~~~~~~~~
+"""ilp_entropy.acuity
+~~~~~~~~~~~~~~~~~~~~~~
+
 Compute per-letter visual-acuity weights for the Initial Landing-Position
 Entropy (ILPE) metric.
 
@@ -32,7 +32,6 @@ __all__ = ["acuity_weights", "weight_matrix"]
 def acuity_weights(
     word_len: int,
     fixation_pos: int,
-    /,
     *,
     drop_left: float = 0.10,
     drop_right: float = 0.10,
@@ -113,11 +112,3 @@ def weight_matrix(
     np.clip(probs, floor, 1.0, out=probs)
     return probs
 
-
-# --------------------------------------------------------------------------- #
-# Quick self-test                                                             #
-# --------------------------------------------------------------------------- #
-if __name__ == "__main__":  # pragma: no cover
-    # Example: 7-letter word, fixation on 3rd letter (index 2)
-    print(acuity_weights(7, 2, drop_left=0.15, drop_right=0.10))
-    print(weight_matrix(5, drop_left=0.2, drop_right=0.1))
