@@ -10,17 +10,21 @@ The tool is configurable, supports parallel processing for efficiency, and allow
 
 ```
 ilp-entropy/
-├── ARCHITECTURE.md         # Detailed explanation of the calculation pipeline
-├── data/
-│   ├── opensubtitles.csv   # All data files live here
-│   └── words.txt
+├── ARCHITECTURE.md         # Detailed explanation of the calculation pipeline and theory
+├── data/                   # Directory for input data files
+│   ├── opensubtitles.csv   # Example corpus file with word frequencies
+│   └── words.txt           # Example word list for targeted calculations
 ├── scripts/
-│   └── run_entropy.py
-├── src/
-│   ├── ... (source files)
-├── config.json
-├── README.md
-└── requirements.txt        # Python dependencies
+│   └── run_entropy.py      # Main entry point for running entropy calculations
+├── src/                    # Source code for the ILP entropy calculation logic
+│   ├── acuity.py           # Models visual acuity drop-off
+│   ├── entropy.py          # Core entropy calculation logic
+│   ├── io.py               # Handles data loading and corpus processing
+│   ├── masks.py            # Generates visibility masks for letters
+│   └── probability.py      # Calculates probabilities of visibility masks
+├── config.json             # Configuration file for default parameters
+├── README.md               # This file
+└── requirements.txt        # Python dependencies for the project
 ```
 
 ## Setup
@@ -57,4 +61,62 @@ This pre-processed and indexed version of the corpus is then used for all subseq
 
 ## Usage
 
-The primary entry point is `
+The primary entry point is `scripts/run_entropy.py`. All parameters can be configured in `config.json` or overridden with command-line arguments.
+
+### Configuration
+
+The `config.json` file holds the default parameters for the script.
+
+```json
+{
+  "corpus_file": "data/opensubtitles.csv",
+  "word_list": "data/words.txt",
+  "drop_left": 0.1,
+  "drop_right": 0.2,
+  "min_freq": 1e-7,
+  "output_file": "ilp_entropy_results.csv"
+}
+```
+
+### Basic Calculation
+
+To run the calculation for a predefined list of words:
+
+```bash
+python scripts/run_entropy.py --word-list data/words.txt --output-file results.csv
+```
+
+### Running on All Corpus Words
+
+To process every word in the corpus that meets the frequency and length criteria (instead of using a word list):
+
+```bash
+python scripts/run_entropy.py --all-corpus-words --word-lengths 5 6 7 --output-file long_words_entropy.csv
+```
+
+### Parallel Execution
+
+The script automatically uses all available CPU cores for processing. You can specify the number of workers:
+
+```bash
+python scripts/run_entropy.py --all-corpus-words --workers 4
+```
+
+### Parameter Sweeps
+
+The tool can run a grid search over different `drop_left` and `drop_right` acuity parameters. This is useful for sensitivity analysis.
+
+The sweep range is defined as a string: `"START,END,STEP"`.
+
+**Example:**
+This command will test `drop_left` values of `0.0`, `0.1`, and `0.2` against `drop_right` values of `0.0`, `0.1`, and `0.2` for the words in `data/words.txt`.
+
+```bash
+python scripts/run_entropy.py \
+    --word-list data/words.txt \
+    --sweep-left "0.0,0.2,0.1" \
+    --sweep-right "0.0,0.2,0.1" \
+    --output-file sweep_results.csv
+```
+
+The output CSV will contain results for every combination of parameters, allowing for easy analysis of how acuity rates affect ILP entropy.

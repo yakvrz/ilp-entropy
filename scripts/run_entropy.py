@@ -13,6 +13,11 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from functools import partial
 import os
 import numpy as np
+import sys
+
+# Add the project root to the Python path
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, project_root)
 
 from src.entropy import ilp_entropy
 from src.io import get_corpus_words, get_corpus_index
