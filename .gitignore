@@ -1,0 +1,58 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Test outputs and entropy sweep results
+ilp_entropy_sweep_*/
+entropy_*.csv
+test_words.txt
+combined_results.csv
+metadata.json
+
+# Temporary files
+*.tmp
+*.temp
+*~
+.DS_Store?
+
+# Logs
+*.log
+logs/
+
+# IDE specific
+.spyderproject
+.spyproject
+.ropeproject
+
+# Documentation builds
+docs/_build/
+site/
+
+# Reference implementation (keep out of repo)
+reference_pipeline.R
