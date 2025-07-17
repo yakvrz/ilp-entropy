@@ -56,3 +56,6 @@ site/
 
 # Reference implementation (keep out of repo)
 reference_pipeline.R
+
+# Pyenv
+.python-version
