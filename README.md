@@ -8,24 +8,23 @@ The core idea is to model how visual acuity drops off with distance from the fix
 
 ## Project Structure
 
-The project is organized as follows:
-
 ```
 ilp-entropy/
 ├── data/
-│   ├── unigrams_en.csv        # Pre-calculated unigram frequencies for English
-│   └── opensubtitles_en.csv     # Default corpus data
-├── output/
-│   └── (generated results)      # Output directory for results
+│   ├── opensubtitles_en.csv   # Corpus data
+│   └── wikipedia_en.csv       # Additional corpus data
 ├── scripts/
-│   └── run_entropy.py           # Main executable script for calculations
+│   └── main.py                # Main executable script for calculations
 ├── src/
-│   ├── entropy.py               # Core entropy calculation logic
-│   ├── io.py                    # Data loading and saving
-│   ├── masks.py                 # Visibility mask generation
-│   └── probability.py           # Probability calculation helpers
-├── tests/
-│   └── test_smoke.py            # Basic smoke tests
+│   ├── entropy.py             # Core entropy calculation logic
+│   ├── io.py                  # Data loading and saving
+│   ├── masks.py               # Visibility mask generation
+│   └── probability.py         # Probability calculation helpers
+├── visualization/
+│   └── plot_results.py        # Script for plotting results
+├── run_simple.sh              # Convenience script for a single run
+├── run_sweep.sh               # Convenience script for a parameter sweep
+├── word_list.txt              # A default list of words to process
 └── README.md
 ```
 
