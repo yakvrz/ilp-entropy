@@ -1,4 +1,0 @@
-entropy
-example
-golden
-laboratory

@@ -1,8 +1,0 @@
-{
-  "corpus_file": "data/opensubtitles.csv",
-  "word_list": "data/words.txt",
-  "drop_left": 0.1,
-  "drop_right": 0.2,
-  "min_freq": 1e-7,
-  "output_file": "ilp_entropy_results.csv"
-}

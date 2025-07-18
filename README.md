@@ -1,122 +1,108 @@
-# ILP Entropy Calculator
+# ILP Entropy Project
 
-This project provides a command-line tool to calculate the Initial Landing Position (ILP) entropy for a given set of words based on a text corpus. It is designed for researchers in psycholinguistics and related fields to analyze how information is distributed across words.
+## Overview
 
-The calculation simulates reading by applying a linear acuity drop-off from a fixation point, measures the resulting uncertainty (entropy) at each possible landing position within a word, and uses a corpus of unigram frequencies to determine word probabilities.
+This project provides a Python implementation for calculating Initial Landing Position (ILP) Entropy. ILP Entropy is a measure from cognitive science and reading research that quantifies the uncertainty (in bits) about a word's identity given a specific eye fixation point.
 
-The tool is configurable, supports parallel processing for efficiency, and allows for parameter sweeps to explore the effects of different acuity drop-off rates.
+The core idea is to model how visual acuity drops off with distance from the fixation point and to calculate the resulting uncertainty based on a corpus of words.
 
 ## Project Structure
 
+The project is organized as follows:
+
 ```
 ilp-entropy/
-├── ARCHITECTURE.md         # Detailed explanation of the calculation pipeline and theory
-├── data/                   # Directory for input data files
-│   ├── opensubtitles.csv   # Example corpus file with word frequencies
-│   └── words.txt           # Example word list for targeted calculations
+├── data/
+│   ├── unigrams_en.csv        # Pre-calculated unigram frequencies for English
+│   └── opensubtitles_en.csv     # Default corpus data
+├── output/
+│   └── (generated results)      # Output directory for results
 ├── scripts/
-│   └── run_entropy.py      # Main entry point for running entropy calculations
-├── src/                    # Source code for the ILP entropy calculation logic
-│   ├── acuity.py           # Models visual acuity drop-off
-│   ├── entropy.py          # Core entropy calculation logic
-│   ├── io.py               # Handles data loading and corpus processing
-│   ├── masks.py            # Generates visibility masks for letters
-│   └── probability.py      # Calculates probabilities of visibility masks
-├── config.json             # Configuration file for default parameters
-├── README.md               # This file
-└── requirements.txt        # Python dependencies for the project
+│   └── run_entropy.py           # Main executable script for calculations
+├── src/
+│   ├── entropy.py               # Core entropy calculation logic
+│   ├── io.py                    # Data loading and saving
+│   ├── masks.py                 # Visibility mask generation
+│   └── probability.py           # Probability calculation helpers
+├── tests/
+│   └── test_smoke.py            # Basic smoke tests
+└── README.md
 ```
 
-## Setup
+## Core Calculation Pipeline
 
-1.  **Clone the repository:**
-    ```bash
-    git clone <repository_url>
-    cd ilp-entropy
-    ```
+The calculation proceeds through the following steps:
 
-2.  **Create and activate a virtual environment (recommended):**
-    ```bash
-    python3 -m venv venv
-    source venv/bin/activate
-    ```
+1.  **Corpus Preprocessing**: The corpus is loaded, sanitized (lowercase, alphabetic words only), and filtered by a minimum frequency threshold. It is then indexed by word length for efficient lookups. (`src/io.py`)
+2.  **Visual Acuity Modeling**: For a given word and fixation point, we model the probability of correctly identifying each letter based on a linear acuity drop-off. (`src/acuity.py`)
+3.  **Mask Enumeration**: We generate all `2^L` possible visibility "masks" for a word of length `L`. (`src/masks.py`)
+4.  **Mask Probability Calculation**: We calculate the probability of each mask occurring based on the letter acuity weights from the previous step. (`src/probability.py`)
+5.  **Candidate Set Entropy**: For each mask, we find all corpus words consistent with the visible letters and compute the Shannon entropy of this "candidate set." (`src/entropy.py`)
+6.  **Final ILP Entropy**: The final entropy for a fixation point is the weighted average of the candidate set entropies, using the mask probabilities as weights. This produces an entropy curve across the word. (`src/entropy.py`)
 
-3.  **Install the required dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    ```
+## Performance and Optimization
 
-4.  **Download Corpus Data:**
-    Place your corpus file (e.g., `opensubtitles.csv`) in the `data/` directory. The expected format is a CSV with `word` and `freq` columns.
+The script is designed for high performance on large datasets and is optimized in several ways:
 
-### Corpus Preprocessing
-
-Before any calculations, the corpus undergoes a critical sanitization and filtering process to ensure data quality and efficiency:
-
-1.  **Lowercase Conversion**: All words from the corpus are converted to lowercase. This ensures that words like "The" and "the" are treated as identical.
-2.  **Alphabetic Filtering**: Words are filtered using the regular expression `^[a-z]+$`. This removes any words containing numbers, hyphens, apostrophes, or any other non-alphabetic characters.
-3.  **Minimum Frequency Filtering**: Words with a frequency below the `--min-freq` threshold (default `1e-7`) are removed from the corpus to exclude very rare words.
-
-This pre-processed and indexed version of the corpus is then used for all subsequent entropy calculations.
+*   **Parallel Processing**: It uses Python's `concurrent.futures.ProcessPoolExecutor` to run calculations in parallel, automatically leveraging all available CPU cores.
+*   **Efficient I/O**: The corpus file is read into memory only once. All subsequent operations (filtering, indexing, etc.) are performed on the in-memory representation to minimize disk access.
+*   **Just-In-Time (JIT) Compilation**: The most computationally intensive part of the entropy calculation is compiled to highly optimized machine code on its first run using the Numba library. Subsequent calls to this function are significantly faster.
+*   **Pre-computation and Caching**: All data required by the worker processes, such as the corpus index and the bitwise visibility masks, are pre-calculated and cached before the main parallel computation begins. This avoids redundant work inside the main loop.
 
 ## Usage
 
-The primary entry point is `scripts/run_entropy.py`. All parameters can be configured in `config.json` or overridden with command-line arguments.
+The primary way to run calculations is via the `scripts/main.py` script. For convenience, two shell scripts are provided in the project root to execute common tasks.
 
-### Configuration
-
-The `config.json` file holds the default parameters for the script.
-
-```json
-{
-  "corpus_file": "data/opensubtitles.csv",
-  "word_list": "data/words.txt",
-  "drop_left": 0.1,
-  "drop_right": 0.2,
-  "min_freq": 1e-7,
-  "output_file": "ilp_entropy_results.csv"
-}
-```
-
-### Basic Calculation
-
-To run the calculation for a predefined list of words:
-
+You may need to make the scripts executable first:
 ```bash
-python scripts/run_entropy.py --word-list data/words.txt --output-file results.csv
+chmod +x run_simple.sh
+chmod +x run_sweep.sh
 ```
 
-### Running on All Corpus Words
+### Convenience Scripts
 
-To process every word in the corpus that meets the frequency and length criteria (instead of using a word list):
-
+#### Single Run (`run_simple.sh`)
+Executes a single calculation with a fixed set of parameters (`drop_left=0.1`, `drop_right=0.2`) for words of length 4-10. It saves the results and a `plot.png` visualization to a new timestamped directory in `output/`.
 ```bash
-python scripts/run_entropy.py --all-corpus-words --word-lengths 5 6 7 --output-file long_words_entropy.csv
+./run_simple.sh
 ```
 
-### Parallel Execution
-
-The script automatically uses all available CPU cores for processing. You can specify the number of workers:
-
+#### Parameter Sweep (`run_sweep.sh`)
+Executes a full parameter sweep over a grid of `drop_left` and `drop_right` values (from 0.1 to 0.9) for words of length 4-10. It saves the results and a `plot.png` visualization to a new timestamped directory in `output/`.
 ```bash
-python scripts/run_entropy.py --all-corpus-words --workers 4
+./run_sweep.sh
 ```
 
-### Parameter Sweeps
+### Manual Execution
 
-The tool can run a grid search over different `drop_left` and `drop_right` acuity parameters. This is useful for sensitivity analysis.
+You can also call the Python script directly to run custom calculations.
 
-The sweep range is defined as a string: `"START,END,STEP"`.
-
-**Example:**
-This command will test `drop_left` values of `0.0`, `0.1`, and `0.2` against `drop_right` values of `0.0`, `0.1`, and `0.2` for the words in `data/words.txt`.
-
+**Example: Single Run for a Word List**
 ```bash
-python scripts/run_entropy.py \
-    --word-list data/words.txt \
-    --sweep-left "0.0,0.2,0.1" \
-    --sweep-right "0.0,0.2,0.1" \
-    --output-file sweep_results.csv
+python scripts/main.py \
+    --corpus-file data/opensubtitles_en.csv \
+    --word-list word_list.txt \
+    --min-freq 1e-6 \
+    --drop-left 0.1 \
+    --drop-right 0.2
 ```
 
-The output CSV will contain results for every combination of parameters, allowing for easy analysis of how acuity rates affect ILP entropy.
+**Example: Custom Sweep**
+```bash
+python scripts/main.py \
+    --corpus-file data/opensubtitles_en.csv \
+    --all-corpus-words \
+    --min-freq 1e-6 \
+    --sweep-left '0.0,0.5,0.1' \
+    --sweep-right '0.0,0.5,0.1'
+```
+
+### All Arguments
+
+*   `--corpus-file`: (Required) Path to the corpus file.
+*   `--min-freq`: (Required) Minimum word frequency to include.
+*   `--word-list` or `--all-corpus-words`: (Required) Specify either a file with a list of words or the flag to use all words from the corpus.
+*   `--drop-left` or `--sweep-left`: (Required) Specify either a single value for the left-side acuity drop-off or a sweep range in the format `'START,END,STEP'`.
+*   `--drop-right` or `--sweep-right`: (Required) Specify either a single value for the right-side acuity drop-off or a sweep range.
+*   `--word-lengths`: (Optional) Filter words by specific lengths.
+*   `--workers`: (Optional) Number of parallel processes to use. Defaults to the number of available CPU cores.

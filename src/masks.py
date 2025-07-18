@@ -38,7 +38,7 @@ def bit_dtype(length: int) -> np.dtype[np.unsignedinteger]:
         return np.dtype(np.uint16)
     if length <= 32:
         return np.dtype(np.uint32)
-    return np.dtype(np.uint64)
+        return np.dtype(np.uint64)
 
 
 def enumerate_masks(length: int) -> NDArray[np.unsignedinteger]:
@@ -62,6 +62,7 @@ def unpack_bits(
 ) -> NDArray[np.bool_]:
     """
     Unpacks integer masks into a 2D boolean array of their bit representations.
+    This is a vectorized implementation that avoids explicit Python loops.
 
     Args:
         masks: A 1D array of integer masks.
@@ -71,11 +72,9 @@ def unpack_bits(
     Returns:
         A 2D boolean array where each row is the bit pattern of a mask.
     """
-    # Create an array to hold the unpacked bits
-    unpacked = np.zeros((len(masks), length), dtype=np.bool_)
-    
-    # Use bitwise operations to extract each bit
-    for i in range(length):
-        unpacked[:, i] = (masks >> i) & 1
-        
+    # Use broadcasting to efficiently extract all bits at once.
+    # The masks are shaped into a column vector (N, 1) and broadcast against
+    # a row vector of bit shifts (1, L), resulting in an (N, L) matrix.
+    powers_of_2 = np.arange(length, dtype=np.uint8)
+    unpacked = ((masks[:, None] >> powers_of_2) & 1).astype(np.bool_)
     return unpacked.astype(dtype)

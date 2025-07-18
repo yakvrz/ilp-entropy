@@ -59,3 +59,9 @@ reference_pipeline.R
 
 # Pyenv
 .python-version
+
+# Experiments
+experiments/
+
+# Output directory
+/output/

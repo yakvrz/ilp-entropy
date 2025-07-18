@@ -1,9 +1,8 @@
 """
-This module handles loading and processing of corpus data.
-
-It reads a unigram frequency list from a CSV file, cleans the data,
-and encodes the words into a numerical format suitable for computation.
+This module handles the loading and processing of corpus data for ILP-based
+entropy calculations.
 """
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -13,71 +12,54 @@ import numpy as np
 import pandas as pd
 
 __all__ = [
-    "get_corpus_index",
-    "get_corpus_words",
+    "load_corpus",
+    "load_words",
 ]
 
 
-def get_corpus_words(
-    csv_path: str | Path, min_freq: float = 1e-7
-) -> list[str]:
+def load_corpus(
+    corpus_file: str | Path, min_freq: float = 1e-7
+) -> tuple[pd.DataFrame, dict[str, int]]:
     """
-    Loads a corpus file and returns a list of words that meet the minimum
-    frequency requirement.
-    """
-    df = pd.read_csv(str(csv_path), usecols=["word", "freq"])
+    Loads a corpus from a CSV file and performs initial cleaning and filtering.
 
-    # Filter by minimum frequency and for valid alphabetic words
-    df = df[df["freq"] >= min_freq]
-    df = df[df["word"].str.match(r"^[a-z]+$", na=False)]
-
-    return df["word"].tolist()
-
-
-def get_corpus_index(
-    word_lengths: Iterable[int],
-    csv_path: str | Path,
-    min_freq: float = 1e-7,
-) -> dict[int, tuple[np.ndarray, np.ndarray]]:
-    """
-    Loads and processes a corpus file into a structured dictionary.
-
-    The function reads a CSV file, filters for valid alphabetic words of
-    specified lengths, and returns a dictionary where keys are word lengths
-    and values are tuples containing NumPy arrays for word codes and their
-    corresponding frequencies.
+    The function reads a CSV file expecting 'word' and 'freq' columns, filters out
+    words below a minimum frequency, and ensures all words consist of lowercase
+    alphabetic characters.
 
     Args:
-        word_lengths: An iterable of integer word lengths to include.
-        csv_path: Optional path to the corpus CSV file. If None, a default
-                  path is used.
+        corpus_file (str | Path): The path to the corpus CSV file.
+        min_freq (float): The minimum frequency threshold for including a word.
 
     Returns:
-        A dictionary mapping each word length to a tuple of (codes, freqs)
-        NumPy arrays. `codes` is a 2D array of letter-to-integer mappings,
-        and `freqs` is a 1D array of word frequencies.
+        A tuple containing:
+        - A pandas DataFrame with the filtered and cleaned corpus data.
+        - A dictionary mapping each character to its integer representation.
     """
-    df = pd.read_csv(str(csv_path), usecols=["word", "freq"])
-
-    # Filter by minimum frequency and for valid alphabetic words
-    df = df[df["freq"] >= min_freq]
+    df = pd.read_csv(str(corpus_file), usecols=["word", "freq"])
+    df = df[df["freq"] >= min_freq].copy()
+    df["word"] = df["word"].str.lower()
     df = df[df["word"].str.match(r"^[a-z]+$", na=False)]
 
-    out: dict[int, tuple[np.ndarray, np.ndarray]] = {}
-    for L in word_lengths:
-        sub = df[df["word"].str.len() == L]
-        if sub.empty:
-            continue
+    # Create character-to-integer mapping from the corpus
+    chars = sorted(list(set("".join(df["word"]))))
+    char_map = {char: i for i, char in enumerate(chars)}
 
-        codes = (
-            sub["word"]
-            .str.lower()
-            .apply(lambda s: [ord(ch) - 97 for ch in s])
-            .explode()
-            .astype("uint8")
-            .to_numpy()
-            .reshape(-1, L)
-        )
-        freqs = sub["freq"].to_numpy(dtype="float32")
-        out[L] = (codes, freqs)
-    return out
+    return df, char_map
+
+
+def load_words(word_file: str | Path) -> list[str]:
+    """
+    Loads a list of words from a text file.
+
+    Each line in the file is treated as a single word. Leading/trailing whitespace
+    is removed.
+
+    Args:
+        word_file (str | Path): The path to the text file containing words.
+
+    Returns:
+        A list of words.
+    """
+    with open(word_file, "r") as f:
+        return [line.strip() for line in f if line.strip()]

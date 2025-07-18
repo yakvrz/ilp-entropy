@@ -64,6 +64,9 @@ def weight_matrix(
     The element W[i, j] in the returned matrix is the probability of
     recognizing the letter at position j when the fixation is at position i.
 
+    This is done by calling `acuity_weights` for each possible fixation point
+    and stacking the resulting vectors.
+
     Args:
         word_len: The number of letters in the word.
         drop_left: The linear drop-off rate per letter to the left of fixation.
@@ -74,16 +77,15 @@ def weight_matrix(
     Returns:
         A 2D NumPy array of shape (word_len, word_len) with acuity weights.
     """
-    fixation_indices = np.arange(word_len, dtype=dtype)[:, None]
-    position_indices = np.arange(word_len, dtype=dtype)[None, :]
-    distances = position_indices - fixation_indices
-
-    probs = np.ones_like(distances, dtype=dtype)
-
-    left_mask = distances < 0
-    probs[left_mask] -= np.abs(distances[left_mask]) * drop_left
-
-    right_mask = distances > 0
-    probs[right_mask] -= distances[right_mask] * drop_right
-    
-    return np.clip(probs, floor, 1.0, out=probs)
+    weights = [
+        acuity_weights(
+            word_len,
+            fix,
+            drop_left=drop_left,
+            drop_right=drop_right,
+            floor=floor,
+            dtype=dtype,
+        )
+        for fix in range(word_len)
+    ]
+    return np.array(weights, dtype=dtype)
