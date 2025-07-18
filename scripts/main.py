@@ -107,8 +107,7 @@ def process_word(word, drop_left, drop_right, corpus_index, mask_cache):
 
 
 def save_metadata(directory, params):
-    """Saves the run parameters to a JSON file."""
-    # Copy params to avoid modifying the original args object in the current scope
+    """Saves the run parameters to a JSON file, rounding floats for clarity."""
     params_to_save = params.copy()
 
     # If all corpus words are used, word_list is irrelevant and should be removed for clarity.
@@ -117,11 +116,17 @@ def save_metadata(directory, params):
 
     metadata_path = os.path.join(directory, "metadata.json")
     with open(metadata_path, "w") as f:
-        # Convert numpy arrays to lists for JSON serialization
-        serializable_params = {
-            k: list(v) if isinstance(v, np.ndarray) else v
-            for k, v in params_to_save.items()
-        }
+        # Convert numpy arrays and round floats for clean serialization
+        serializable_params = {}
+        for k, v in params_to_save.items():
+            if isinstance(v, np.ndarray):
+                # Round array elements to a few decimal places
+                serializable_params[k] = [round(x, 8) for x in v.tolist()]
+            elif isinstance(v, float):
+                serializable_params[k] = round(v, 8)
+            else:
+                serializable_params[k] = v
+
         json.dump(serializable_params, f, indent=4)
     print(f"Run metadata saved to {metadata_path}")
 
