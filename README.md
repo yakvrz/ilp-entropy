@@ -48,6 +48,10 @@ The script is designed for high performance on large datasets and is optimized i
 *   **Just-In-Time (JIT) Compilation**: The most computationally intensive part of the entropy calculation is compiled to highly optimized machine code on its first run using the Numba library. Subsequent calls to this function are significantly faster.
 *   **Pre-computation and Caching**: All data required by the worker processes, such as the corpus index and the bitwise visibility masks, are pre-calculated and cached before the main parallel computation begins. This avoids redundant work inside the main loop.
 
+## Example Output
+
+![Mean ILP entropy curves](figures/mean_entropy_by_length.png)
+
 ## Usage
 
 The primary way to run calculations is via the `scripts/main.py` script. For convenience, two shell scripts are provided in the project root to execute common tasks.
