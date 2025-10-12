@@ -50,7 +50,7 @@ The script is designed for high performance on large datasets and is optimized i
 
 ## Example Output
 
-![Mean ILP entropy curves](figures/mean_entropy_by_length.png)
+![Morphology-sensitive ILP entropy](figures/morphology_entropy.png)
 
 ## Usage
 
