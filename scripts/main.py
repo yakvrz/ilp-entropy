@@ -7,14 +7,14 @@ parameter sweeps for drop rates.
 """
 import argparse
 import json
-import pandas as pd
-from tqdm import tqdm
-from concurrent.futures import ProcessPoolExecutor, as_completed
-from functools import partial
 import os
-import numpy as np
 import sys
 from datetime import datetime
+from concurrent.futures import ProcessPoolExecutor, as_completed
+
+import numpy as np
+import pandas as pd
+from tqdm import tqdm
 
 # Add the project root to the Python path
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -23,6 +23,10 @@ sys.path.insert(0, project_root)
 from src.entropy import ilp_entropy
 from src.io import load_corpus, load_words
 from src.masks import enumerate_masks, unpack_bits
+
+# Globals set inside each worker to avoid re-pickling large objects per task
+GLOBAL_CORPUS_INDEX = None
+GLOBAL_MASK_CACHE = None
 
 
 def build_corpus_index(
@@ -80,15 +84,22 @@ def parse_sweep_range(range_str: str) -> np.ndarray:
         )
 
 
-def process_word(word, drop_left, drop_right, corpus_index, mask_cache):
-    """Worker function to process a single word with specific parameters."""
+def init_worker(corpus_index, mask_cache):
+    """Initializer to set heavy, read-only state in each worker process."""
+    global GLOBAL_CORPUS_INDEX, GLOBAL_MASK_CACHE
+    GLOBAL_CORPUS_INDEX = corpus_index
+    GLOBAL_MASK_CACHE = mask_cache
+
+
+def process_word(word: str, drop_left: float, drop_right: float):
+    """Worker function to process a single word using globals set by init_worker."""
     try:
         entropy_curve = ilp_entropy(
             word=word,
             drop_left=drop_left,
             drop_right=drop_right,
-            corpus=corpus_index,
-            mask_cache=mask_cache,
+            corpus=GLOBAL_CORPUS_INDEX,
+            mask_cache=GLOBAL_MASK_CACHE,
         )
         word_results = []
         for i, entropy_value in enumerate(entropy_curve):
@@ -270,23 +281,27 @@ def main():
     
     all_results = []
     
-    with ProcessPoolExecutor(max_workers=args.workers) as executor:
+    with ProcessPoolExecutor(
+        max_workers=args.workers,
+        initializer=init_worker,
+        initargs=(corpus_index, mask_cache),
+    ) as executor:
         for params in tqdm(param_grid, desc="Parameter Sweep"):
             current_drop_left = params["drop_left"]
             current_drop_right = params["drop_right"]
 
-            worker_func = partial(
-                process_word,
-                drop_left=current_drop_left,
-                drop_right=current_drop_right,
-                corpus_index=corpus_index,
-                mask_cache=mask_cache,
-            )
-            
-            futures = {executor.submit(worker_func, word) for word in words_to_process}
-            
+            futures = [
+                executor.submit(process_word, word, current_drop_left, current_drop_right)
+                for word in words_to_process
+            ]
+
             sweep_desc = f"Sweep (L={current_drop_left:.2f}, R={current_drop_right:.2f})"
-            for future in tqdm(as_completed(futures), total=len(words_to_process), desc=sweep_desc, leave=False):
+            for future in tqdm(
+                as_completed(futures),
+                total=len(futures),
+                desc=sweep_desc,
+                leave=False,
+            ):
                 result = future.result()
                 if isinstance(result, list):
                     all_results.extend(result)
@@ -306,4 +321,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()
