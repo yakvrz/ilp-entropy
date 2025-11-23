@@ -65,3 +65,9 @@ experiments/
 
 # Output directory
 /output/
+
+# Generated wordlists/exports
+/Gollan/
+/Gollan_he/
+/Gollan.zip
+/Gollan_he.zip

@@ -39,7 +39,8 @@ def load_corpus(
     df = pd.read_csv(str(corpus_file), usecols=["word", "freq"])
     df = df[df["freq"] >= min_freq].copy()
     df["word"] = df["word"].str.lower()
-    df = df[df["word"].str.match(r"^[a-z]+$", na=False)]
+    # Allow both English and Hebrew alphabetic tokens; drop anything with digits/punctuation.
+    df = df[df["word"].str.fullmatch(r"[A-Za-zא-ת]+", na=False)]
 
     # Create character-to-integer mapping from the corpus
     chars = sorted(list(set("".join(df["word"]))))

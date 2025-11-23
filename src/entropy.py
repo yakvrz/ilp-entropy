@@ -82,6 +82,7 @@ def ilp_entropy(
     *,
     corpus: dict[int, tuple[np.ndarray, np.ndarray]],
     mask_cache: dict[int, np.ndarray],
+    char_map: dict[str, int] | None = None,
 ) -> list[float]:
     """
     Calculates the ILP entropy curve for a single word.
@@ -96,6 +97,8 @@ def ilp_entropy(
         drop_right: The linear acuity drop-off rate to the right of fixation.
         corpus: A pre-loaded and structured corpus index.
         mask_cache: A dictionary caching the bit-unpacked visibility masks for word lengths.
+        char_map: Optional mapping from characters to integer codes. If provided,
+            it is used to encode the word; otherwise a default a=0, b=1, ... mapping is used.
 
     Returns:
         A list of floats representing the entropy at each fixation position.
@@ -112,7 +115,12 @@ def ilp_entropy(
         ) from exc
 
     # 2. Calculate the entropy for each possible visibility mask.
-    word_codes = np.fromiter((ord(c) - 97 for c in word), dtype=np.uint8, count=word_len)
+    if char_map is None:
+        # Default English-centric encoding.
+        word_codes = np.fromiter((ord(c) - 97 for c in word), dtype=np.uint8, count=word_len)
+    else:
+        # General unicode-friendly encoding using the supplied map.
+        word_codes = np.fromiter((char_map[c] for c in word), dtype=corpus_codes.dtype, count=word_len)
     ent_by_mask = _candidate_entropy_by_mask(
         word_codes,
         masks_bits,

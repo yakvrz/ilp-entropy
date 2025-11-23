@@ -27,10 +27,11 @@ from src.masks import enumerate_masks, unpack_bits
 # Globals set inside each worker to avoid re-pickling large objects per task
 GLOBAL_CORPUS_INDEX = None
 GLOBAL_MASK_CACHE = None
+GLOBAL_CHAR_MAP = None
 
 
 def build_corpus_index(
-    corpus_df: pd.DataFrame, word_lengths: list[int]
+    corpus_df: pd.DataFrame, word_lengths: list[int], *, char_map: dict[str, int] | None = None
 ) -> dict[int, tuple[np.ndarray, np.ndarray]]:
     """
     Builds a structured dictionary (index) from the corpus for efficient lookups.
@@ -42,6 +43,8 @@ def build_corpus_index(
     Args:
         corpus_df: The pre-loaded and filtered corpus DataFrame.
         word_lengths: A list of word lengths to be included in the index.
+        char_map: Optional mapping of characters to integer codes. If None,
+            a default a=0, b=1, ... encoding is used (suitable for English).
 
     Returns:
         A dictionary where keys are word lengths and values are (codes, freqs) tuples.
@@ -53,15 +56,26 @@ def build_corpus_index(
         if sub.empty:
             continue
 
-        # Convert word strings to a NumPy array of integer codes (a=0, b=1, ...)
-        codes = (
-            sub["word"]
-            .apply(lambda s: [ord(ch) - 97 for ch in s])
-            .explode()
-            .astype("uint8")
-            .to_numpy()
-            .reshape(-1, L)
-        )
+        if char_map is None:
+            # Default English-centric encoding.
+            codes = (
+                sub["word"]
+                .apply(lambda s: [ord(ch) - 97 for ch in s])
+                .explode()
+                .astype("uint8")
+                .to_numpy()
+                .reshape(-1, L)
+            )
+        else:
+            # General unicode-friendly encoding driven by provided mapping.
+            codes = (
+                sub["word"]
+                .apply(lambda s: [char_map[ch] for ch in s])
+                .explode()
+                .astype("uint16")
+                .to_numpy()
+                .reshape(-1, L)
+            )
 
         # Convert frequencies to a NumPy array
         freqs = sub["freq"].to_numpy(dtype="float32")
@@ -84,11 +98,12 @@ def parse_sweep_range(range_str: str) -> np.ndarray:
         )
 
 
-def init_worker(corpus_index, mask_cache):
+def init_worker(corpus_index, mask_cache, char_map):
     """Initializer to set heavy, read-only state in each worker process."""
-    global GLOBAL_CORPUS_INDEX, GLOBAL_MASK_CACHE
+    global GLOBAL_CORPUS_INDEX, GLOBAL_MASK_CACHE, GLOBAL_CHAR_MAP
     GLOBAL_CORPUS_INDEX = corpus_index
     GLOBAL_MASK_CACHE = mask_cache
+    GLOBAL_CHAR_MAP = char_map
 
 
 def process_word(word: str, drop_left: float, drop_right: float):
@@ -100,6 +115,7 @@ def process_word(word: str, drop_left: float, drop_right: float):
             drop_right=drop_right,
             corpus=GLOBAL_CORPUS_INDEX,
             mask_cache=GLOBAL_MASK_CACHE,
+            char_map=GLOBAL_CHAR_MAP,
         )
         word_results = []
         for i, entropy_value in enumerate(entropy_curve):
@@ -232,7 +248,7 @@ def main():
 
     # --- Pre-load the corpus and create the corpus index ---
     print(f"Loading and processing corpus from {args.corpus_file}...")
-    corpus_df, _ = load_corpus(
+    corpus_df, char_map = load_corpus(
         corpus_file=args.corpus_file, min_freq=args.min_freq
     )
 
@@ -257,6 +273,7 @@ def main():
     corpus_index = build_corpus_index(
         corpus_df=corpus_df,
         word_lengths=all_lengths,
+        char_map=char_map,
     )
     print("Corpus index created.")
 
@@ -284,7 +301,7 @@ def main():
     with ProcessPoolExecutor(
         max_workers=args.workers,
         initializer=init_worker,
-        initargs=(corpus_index, mask_cache),
+        initargs=(corpus_index, mask_cache, char_map),
     ) as executor:
         for params in tqdm(param_grid, desc="Parameter Sweep"):
             current_drop_left = params["drop_left"]
